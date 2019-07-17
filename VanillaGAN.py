@@ -3,6 +3,11 @@ import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import layers
 
+import scipy.misc
+import os
+
+result_path = './result/vanilla-gan/'
+
 # fixed random seed
 seed = 42
 np.random.seed(seed)
@@ -10,9 +15,10 @@ tf.random.set_seed(seed)
 
 # hyperparameter
 input_shape = [-1, 28, 28, 1]
-learning_rate = 1e-3
+d_learning_rate = 1e-3
+g_learning_rate = 1e-2
 batch_size = 128
-iteration = 500000
+iteration = 300000
 z_dim = 100
 
 # gan models
@@ -60,19 +66,22 @@ G.build(input_shape=(batch_size, z_dim))
 D = Discriminator()
 D.build(input_shape=(batch_size, 28, 28, 1))
 
-g_optimizer = tf.optimizers.Adam(learning_rate)
-d_optimizer = tf.optimizers.Adam(learning_rate)
+g_optimizer = tf.optimizers.Adam(g_learning_rate)
+d_optimizer = tf.optimizers.Adam(d_learning_rate)
 
 
 # load dataset
 (x_train, _), (x_test ) = keras.datasets.mnist.load_data()
 x_train = tf.cast(x_train, np.float32) / 255.
-dataset = tf.data.Dataset.from_tensor_slices(x_train).shuffle(batch_size * 8).batch(batch_size).repeat()
-dataset = iter(dataset)
+dataset = tf.data.Dataset.from_tensor_slices(x_train).shuffle(batch_size * 32).repeat().batch(batch_size)
+dataset = tf.compat.v1.data.make_one_shot_iterator(dataset)
+
 
 
 # training
-for itr, images in enumerate(dataset):
+for itr in range(iteration):
+    images = dataset.get_next()
+
     real_batch = tf.reshape(images, shape=input_shape)
 
     # training Discriminator
@@ -98,8 +107,16 @@ for itr, images in enumerate(dataset):
     grads = tape.gradient(G_loss, G.trainable_variables)
     g_optimizer.apply_gradients(zip(grads, G.trainable_variables))
 
-    if itr % 500 == 0:
+
+    if itr % 100 == 0:
+        z = sampling_z(1, z_dim)
+        image = G(z)
+        image = tf.reshape(image, input_shape);
+        image = tf.squeeze(image)
+        scipy.misc.imsave(os.path.join(result_path, '{}.jpg'.format(itr)), image)
         print("Iter: {}    D_loss: {:.4f}    G_loss: {:.4f}".format(itr, D_loss, G_loss))
+        
+
 
 
     
