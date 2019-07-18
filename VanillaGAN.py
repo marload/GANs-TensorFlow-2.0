@@ -3,6 +3,7 @@ import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import layers
 
+import matplotlib.pyplot as plt
 import scipy.misc
 import os
 
@@ -15,10 +16,10 @@ tf.random.set_seed(seed)
 
 # hyperparameter
 input_shape = [-1, 28, 28, 1]
-d_learning_rate = 1e-3
-g_learning_rate = 1e-2
-batch_size = 128
-iteration = 300000
+d_learning_rate = 1e-4
+g_learning_rate = 1e-4
+batch_size = 64
+iteration = 100000
 z_dim = 100
 
 # gan models
@@ -77,7 +78,8 @@ dataset = tf.data.Dataset.from_tensor_slices(x_train).shuffle(batch_size * 32).r
 dataset = tf.compat.v1.data.make_one_shot_iterator(dataset)
 
 
-
+d_losses = []
+g_losses = []
 # training
 for itr in range(iteration):
     images = dataset.get_next()
@@ -95,6 +97,7 @@ for itr in range(iteration):
 
     grads = tape.gradient(D_loss, D.trainable_variables)
     d_optimizer.apply_gradients(zip(grads, D.trainable_variables))
+    d_losses.append(D_loss)
 
     # training Generator
     with tf.GradientTape() as tape:
@@ -106,6 +109,7 @@ for itr in range(iteration):
 
     grads = tape.gradient(G_loss, G.trainable_variables)
     g_optimizer.apply_gradients(zip(grads, G.trainable_variables))
+    g_losses.append(G_loss)
 
 
     if itr % 100 == 0:
@@ -115,8 +119,17 @@ for itr in range(iteration):
         image = tf.squeeze(image)
         scipy.misc.imsave(os.path.join(result_path, '{}.jpg'.format(itr)), image)
         print("Iter: {}    D_loss: {:.4f}    G_loss: {:.4f}".format(itr, D_loss, G_loss))
-        
 
+
+        
+plt.plot(d_losses)
+plt.plot(g_losses)
+plt.title('GAN Loss')
+
+plt.ylabel('Loss')
+plt.xlabel('Iteration')
+plt.legend(['Discriminator', 'Generator'], loc='upper right')
+plt.show()
 
 
     
